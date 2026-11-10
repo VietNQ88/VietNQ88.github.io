@@ -1,5 +1,5 @@
 // Service worker: lưu app vào máy để dùng khi không có mạng
-const CACHE = 'kcad-20261110-174559';
+const CACHE = 'kcad-20261110-180117';
 const CORE = [
   './', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',

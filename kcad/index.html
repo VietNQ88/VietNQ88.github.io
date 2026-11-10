@@ -443,15 +443,18 @@ function doiTang(layers) {
   return { rows, H, Etb: E };
 }
 
-// Hệ nhiều lớp → Edc (đã nhân β, không vượt E lớn nhất) → Ech
-function heMoDun(layersBU, key, D, E0) {
+// Hệ nhiều lớp → Edc (đã nhân β) → Ech. Chú thích Bảng 11: Edc không vượt E lớn nhất của các lớp
+// đem quy đổi — chỉ áp dụng khi có từ 2 lớp trở lên (1 lớp thì không có quy đổi).
+// ratioTay: Ech/E1 tra toán đồ Hình 2 bằng tay (bỏ trống = tự tra)
+function heMoDun(layersBU, key, D, E0, ratioTay) {
   const L = layersBU.map(l => ({ ten: l.ten, h: +l.h || 0, E: +l[key] || 0 })).filter(l => l.h > 0);
   const dt = doiTang(L), hd = dt.H / D, b = beta(hd);
   const Emax = Math.max(...L.map(l => l.E), 0);
   let Edc = b * dt.Etb, capped = false;
-  if (Edc > Emax) { Edc = Emax; capped = true; }
-  const e0e1 = E0 / Edc, ratio = echRatio(e0e1, hd);
-  return { ...dt, hd, beta: b, Edc, capped, Emax, e0e1, ratio, Ech: ratio * Edc, theoE1: hd > 2 };
+  if (L.length > 1 && Edc > Emax) { Edc = Emax; capped = true; }
+  const e0e1 = E0 / Edc, ratioAuto = echRatio(e0e1, hd);
+  const tay = isFinite(ratioTay) && ratioTay > 0, ratio = tay ? +ratioTay : ratioAuto;
+  return { ...dt, hd, beta: b, Edc, capped, Emax, e0e1, ratio, ratioAuto, tay, Ech: ratio * Edc, theoE1: hd > 2 };
 }
 
 // ---------- Tính toàn bộ ----------
@@ -490,8 +493,11 @@ function tinh(inp) {
   const H = layers.reduce((a, l) => a + l.h, 0);
   const capA = mat !== 'B1';
 
+  // Giá trị tra toán đồ nhập tay: { A, taxp, tav, m: {i}, sku: {i} }, bỏ trống = tự tra
+  const tay = inp.tay || {}, co = v => v !== undefined && v !== null && v !== '' && isFinite(v);
+
   // A. Độ võng
-  const A = heMoDun(BU, 'Ev', D, E0);
+  const A = heMoDun(BU, 'Ev', D, E0, tay.A);
   A.KEyc = Kdv * Eyc; A.ok = A.Ech >= A.KEyc;
 
   // B. Cắt trượt trong nền đất
@@ -499,9 +505,10 @@ function tinh(inp) {
   B.r = B.Edc / E0;
   const tx = taxP(B.hd, B.r, phi);
   B.taxpAuto = tx.v; B.hinh = tx.hinh; tx.notes.forEach(n => warns.push('Tax/p: ' + n));
-  B.taxp = inp.taxpTay > 0 ? +inp.taxpTay : tx.v; B.taxpTay = inp.taxpTay > 0;
+  B.taxpTay = co(tay.taxp) && tay.taxp > 0; B.taxp = B.taxpTay ? +tay.taxp : tx.v;
   B.Tax = B.taxp * p;
-  B.Tav = H * (0.005 - 0.0003 * phi) / 100;
+  B.tavAuto = H * (0.005 - 0.0003 * phi) / 100;          // Hình 6 (tuyến tính hóa)
+  B.tavTay = co(tay.tav); B.Tav = B.tavTay ? +tay.tav : B.tavAuto;   // Tav có thể âm
   B.K2 = traK2(Ntt); B.K1 = K1; B.K3 = K3; B.c = c;
   B.Ctt = c * K1 * B.K2 * K3;
   B.lim = B.Ctt / Ktr; B.sum = B.Tax + B.Tav; B.ok = B.sum <= B.lim;
@@ -514,16 +521,16 @@ function tinh(inp) {
     const tren = layers.slice(0, i + 1), duoi = layers.slice(i + 1);
     const h1 = tren.reduce((a, x) => a + x.h, 0);
     const E1 = tren.reduce((a, x) => a + x.Eku * x.h, 0) / h1;
-    const m = duoi.length ? heMoDun(duoi.slice().reverse(), 'Eku', D, E0) : null;
+    const m = duoi.length ? heMoDun(duoi.slice().reverse(), 'Eku', D, E0, tay.m && tay.m[i]) : null;
     const Echm = m ? m.Ech : E0;
     const hd = h1 / D, r = E1 / Echm;
     const h7 = skuH7(hd, r);
     h7.notes.forEach(n => warns.push(`σku lớp ${l.ten}: ${n}`));
-    const tay = inp.skuTay && inp.skuTay[i] > 0;
-    const sbar = tay ? +inp.skuTay[i] : h7.v;
+    const skuNhap = tay.sku && tay.sku[i], skuTay = co(skuNhap) && skuNhap > 0;
+    const sbar = skuTay ? +skuNhap : h7.v;
     const sku = sbar * p * 0.85;
     const Rtt = k1 * l.k2 * l.Rku, lim = Rtt / Kku;
-    C.push({ i, ten: l.ten, tren, duoi, h1, E1, m, Echm, hd, r, sbarAuto: h7.v, sbarE2: skuE2(Math.max(hd, 0.05), r), sbar, tay, sku, k1, k2: l.k2, Rku: l.Rku, Rtt, lim, ok: sku <= lim });
+    C.push({ i, ten: l.ten, tren, duoi, h1, E1, m, Echm, hd, r, sbarAuto: h7.v, sbarE2: skuE2(Math.max(hd, 0.05), r), sbar, tay: skuTay, sku, k1, k2: l.k2, Rku: l.Rku, Rtt, lim, ok: sku <= lim });
   });
 
   // Bề dày tối thiểu tầng mặt A1 (Bảng F.1)
@@ -604,7 +611,9 @@ const DEF_XE = [
 let layers = JSON.parse(JSON.stringify(DEF_LAYERS));
 let xes = JSON.parse(JSON.stringify(DEF_XE));
 let eycMode = 'b10';
-let over = { taxp: '', sku: {} };   // giá trị tra toán đồ nhập tay (để trống = tự tra)
+let over = { mode: {}, val: {} };   // tra toán đồ: mode[k] = 'auto' | 'tay', val[k] = giá trị nhập tay
+// Đổi kết cấu lớp: bỏ các giá trị tra tay gắn với từng lớp (Ech.m, σku) vì vị trí lớp đã khác
+const resetLayerOver = () => { for (const k of Object.keys(over.mode)) if (/^(m|sku)\d/.test(k)) { delete over.mode[k]; delete over.val[k]; } };
 
 // Nền đất: tra Bảng B.4 rồi điền E0, c, φ, K3 (chế độ nhập tay thì để người dùng sửa)
 function applyDat() {
@@ -666,7 +675,7 @@ $('layers').addEventListener('change', e => {
   if (el.dataset.k === 'pi') {   // chọn vật liệu: điền thông số theo thư viện, giữ bề dày đang nhập
     const i = +el.closest('.layer').dataset.i, pi = +el.value, old = layers[i];
     layers[i] = pi === -1 ? { ...old, pi: -1 } : fromPreset(pi, old.h);
-    over.sku = {}; renderLayers(); render(); return;
+    resetLayerOver(); renderLayers(); render(); return;
   }
   if (el.dataset.k === 'ku' || el.dataset.k === 'k2') { const box = el.closest('.layer'); layers[+box.dataset.i][el.dataset.k] = el.dataset.k === 'ku' ? el.checked : num(el.value); if (el.dataset.k === 'ku') renderLayers(); render(); } });
 $('layers').addEventListener('click', e => {
@@ -675,14 +684,14 @@ $('layers').addEventListener('click', e => {
   if (a === 'del') { if (layers.length <= 1) return toast('Cần ít nhất 1 lớp'); layers.splice(i, 1); }
   if (a === 'up' && i > 0) [layers[i - 1], layers[i]] = [layers[i], layers[i - 1]];
   if (a === 'down' && i < layers.length - 1) [layers[i + 1], layers[i]] = [layers[i], layers[i + 1]];
-  over.sku = {}; renderLayers(); render();
+  resetLayerOver(); renderLayers(); render();
 });
 $('addLayer').addEventListener('click', () => {
   const pi = +$('preset').value;
   const l = pi === -1 ? { pi: -1, ten: 'Lớp vật liệu khác', h: 15, Ev: 200, Etr: 200, Eku: 200, Rku: 0, k2: 1, ku: false } : fromPreset(pi);
   const at = l.ku ? layers.filter(x => x.ku).length : layers.length;   // BTN chèn dưới các lớp BTN, lớp khác thêm xuống cuối
   layers.splice(at, 0, l);
-  over.sku = {}; renderLayers(); render(); toast('Đã thêm: ' + l.ten);
+  resetLayerOver(); renderLayers(); render(); toast('Đã thêm: ' + l.ten);
 });
 
 function renderXe() {
@@ -715,8 +724,18 @@ function input() {
     P: num($('P').value), mat: $('mat').value, duong: +$('duong').value, R: num($('R').value), eycMode, eycTay: num($('eycTay').value),
     Ntt: num($('Ntt').value), fL: num($('fL').value), q: num($('q').value), t: num($('t').value), xes,
     E0: num($('E0').value), c: num($('c').value), phi: num($('phi').value), K3: num($('K3').value),
-    layers, taxpTay: num(over.taxp), skuTay: Object.fromEntries(Object.entries(over.sku).map(([k, v]) => [k, num(v)])),
+    layers, tay: tayInput(),
   };
+}
+// Giá trị tra toán đồ: khóa A, taxp, tav, m<i>, sku<i>; chỉ gửi những mục đang chọn "Tự nhập"
+function tayInput() {
+  const t = { m: {}, sku: {} };
+  for (const [k, mode] of Object.entries(over.mode)) {
+    if (mode !== 'tay' || String(over.val[k] ?? '').trim() === '') continue;
+    const v = num(over.val[k]), m = k.match(/^(m|sku)(\d+)$/);
+    if (m) t[m[1]][m[2]] = v; else t[k] = v;
+  }
+  return t;
 }
 
 function check(cls, text, tag) { return `<div class="check ${cls}"><span>${text}</span><b>${tag}</b></div>`; }
@@ -757,27 +776,46 @@ function render() {
   return r;
 }
 
-// Ô tra toán đồ: hiện giá trị tự tra, cho phép nhập đè
+// Các giá trị tra toán đồ: mỗi mục chọn Tự động (app tự tra) hoặc Tự nhập (tra tay trên toán đồ)
+function chartItems(r) {
+  const it = [{ k: 'A', nhom: 'A. Độ võng đàn hồi', ten: 'E<sub>ch</sub>/E<sub>tb</sub><sup>dc</sup> – Hình 2', tham: `H/D = ${fmt(r.A.hd, 3)}; E<sub>0</sub>/E<sub>tb</sub><sup>dc</sup> = ${fmt(r.A.e0e1, 3)}`, auto: r.A.ratioAuto, d: 3 }];
+  if (r.capA) {
+    it.push({ k: 'taxp', nhom: 'B. Cắt trượt trong nền đất', ten: `T<sub>ax</sub>/p – Hình ${r.B.hinh}`, tham: `H/D = ${fmt(r.B.hd, 3)}; E<sub>1</sub>/E<sub>2</sub> = ${fmt(r.B.r, 2)}; φ = ${fmt(r.phi, 0)}°`, auto: r.B.taxpAuto, d: 4 });
+    it.push({ k: 'tav', ten: 'T<sub>av</sub> (MPa) – Hình 6', tham: `H = ${fmt(r.H, 0)} cm; φ = ${fmt(r.phi, 0)}°`, auto: r.B.tavAuto, d: 4, am: true });
+    r.C.forEach((x, n) => {
+      if (x.m) it.push({ k: 'm' + x.i, nhom: `C${n + 1}. Kéo uốn lớp ${esc(x.ten)}`, ten: 'E<sub>ch.m</sub>/E<sub>tb</sub><sup>dc</sup> – Hình 2', tham: `H/D = ${fmt(x.m.hd, 3)}; E<sub>0</sub>/E<sub>tb</sub><sup>dc</sup> = ${fmt(x.m.e0e1, 3)}`, auto: x.m.ratioAuto, d: 3 });
+      it.push({ k: 'sku' + x.i, nhom: x.m ? '' : `C${n + 1}. Kéo uốn lớp ${esc(x.ten)}`, ten: 'σ̄<sub>ku</sub> – Hình 7', tham: `h/D = ${fmt(x.hd, 3)}; E<sub>1</sub>/E<sub>ch.m</sub> = ${fmt(x.r, 2)}`, auto: x.sbarAuto, d: 3, e2: x.sbarE2 });
+    });
+  }
+  return it;
+}
 function renderCharts(r) {
-  const el = $('charts');
-  const focused = document.activeElement && el.contains(document.activeElement) ? document.activeElement.dataset.ov : null;
-  if (focused) {  // đang gõ: chỉ cập nhật chữ gợi ý
-    el.querySelectorAll('[data-auto]').forEach(s => { const k = s.dataset.auto; s.innerHTML = autoText(r, k); });
+  const el = $('charts'), items = chartItems(r);
+  const sig = items.map(x => x.k + (over.mode[x.k] || 'auto')).join();
+  if (el.dataset.sig === sig && el.contains(document.activeElement)) {   // đang gõ: chỉ cập nhật phần gợi ý
+    items.forEach(x => { const s = el.querySelector(`[data-hint="${x.k}"]`); if (s) s.innerHTML = hint(x); const i = el.querySelector(`input[data-ov="${x.k}"]`); if (i && i.disabled) i.value = fmt(x.auto, x.d); });
     return;
   }
-  let h = `<label class="f full"><span>Tax/p – Hình ${r.B.hinh} (H/D = ${fmt(r.B.hd, 3)}; E<sub>1</sub>/E<sub>2</sub> = ${fmt(r.B.r, 2)}; φ = ${fmt(r.phi, 0)}°)</span><div class="in"><input data-ov="taxp" inputmode="decimal" value="${esc(over.taxp)}" placeholder="${fmt(r.B.taxpAuto, 4)}"></div><span class="hint" data-auto="taxp">${autoText(r, 'taxp')}</span></label>`;
-  r.C.forEach(x => {
-    h += `<label class="f full"><span>σ̄<sub>ku</sub> ${esc(x.ten)} – Hình 7 (h/D = ${fmt(x.hd, 3)}; E<sub>1</sub>/E<sub>ch.m</sub> = ${fmt(x.r, 2)})</span><div class="in"><input data-ov="sku${x.i}" inputmode="decimal" value="${esc(over.sku[x.i] || '')}" placeholder="${fmt(x.sbarAuto, 3)}"></div><span class="hint" data-auto="sku${x.i}">${autoText(r, 'sku' + x.i)}</span></label>`;
-  });
-  el.innerHTML = h + '<p class="hint full" style="margin:0">Để trống để dùng giá trị tự tra. Nhập số khi muốn dùng giá trị tra toán đồ bằng tay.</p>';
+  el.dataset.sig = sig;
+  el.innerHTML = items.map(x => {
+    const tay = over.mode[x.k] === 'tay';
+    return (x.nhom ? `<p class="full" style="margin:6px 0 -4px;font-weight:600;font-size:.84rem">${x.nhom}</p>` : '') +
+      `<div class="f full" style="display:flex;flex-direction:column;gap:3px;font-size:.8rem;color:var(--muted)"><span>${x.ten} <span style="opacity:.8">(${x.tham})</span></span>
+      <div style="display:flex;gap:8px"><select class="sel" data-mode="${x.k}" style="flex:none;width:9.5em"><option value="auto" ${tay ? '' : 'selected'}>Tự động</option><option value="tay" ${tay ? 'selected' : ''}>Tự nhập</option></select>
+      <div class="in" style="flex:1"><input data-ov="${x.k}" inputmode="decimal" ${tay ? '' : 'disabled'} value="${tay ? esc(over.val[x.k] ?? '') : fmt(x.auto, x.d)}" aria-label="Giá trị ${x.k}"></div></div>
+      <span class="hint" data-hint="${x.k}">${hint(x)}</span></div>`;
+  }).join('') + '<p class="hint full" style="margin:0">Tự động: app tra theo toán đồ đã số hóa. Tự nhập: dùng giá trị bạn tra trên toán đồ, PDF sẽ ghi "(tra tay)".</p>';
 }
-function autoText(r, k) {
-  if (k === 'taxp') return `Tự tra: ${fmt(r.B.taxpAuto, 4)}${r.B.taxpTay ? ' · đang dùng giá trị nhập tay' : ''}`;
-  const x = r.C.find(x => 'sku' + x.i === k); if (!x) return '';
-  return `Tự tra: ${fmt(x.sbarAuto, 3)} · công thức E.2: ${fmt(x.sbarE2, 3)}${x.tay ? ' · đang dùng giá trị nhập tay' : ''}`;
-}
-$('charts').addEventListener('input', e => { const k = e.target.dataset.ov; if (!k) return; if (k === 'taxp') over.taxp = e.target.value; else over.sku[k.slice(3)] = e.target.value; render(); });
-$('charts').addEventListener('focusout', () => setTimeout(() => { if (!$('charts').contains(document.activeElement)) render(); }, 0));
+function hint(x) { return `Tự tra: ${fmt(x.auto, x.d)}${x.e2 !== undefined ? ` · công thức E.2: ${fmt(x.e2, 3)}` : ''}${x.am ? ' · có thể âm' : ''}`; }
+$('charts').addEventListener('change', e => {
+  const k = e.target.dataset.mode; if (!k) return;
+  over.mode[k] = e.target.value;
+  if (e.target.value === 'tay' && String(over.val[k] ?? '').trim() === '') {   // điền sẵn giá trị tự tra để sửa cho nhanh
+    const x = chartItems(K.tinh(input())).find(x => x.k === k); if (x) over.val[k] = String(+x.auto.toFixed(x.d));
+  }
+  render();
+});
+$('charts').addEventListener('input', e => { const k = e.target.dataset.ov; if (!k) return; over.val[k] = e.target.value; render(); });
 
 // Các bước tính trên màn hình
 function tangTable(m, key) {
@@ -791,7 +829,7 @@ function heRows(m, D, E0, ten = 'E<sub>tb</sub><sup>dc</sup>') {
     ['β (Bảng 11)', fmt(m.beta, 3)],
     [ten + ' = β·E\'<sub>tb</sub>', `${fmt(m.beta, 3)} × ${fmt(m.Etb, 2)} = ${fmt(m.beta * m.Etb, 2)} MPa${m.capped ? ` → lấy bằng E lớn nhất ${fmt(m.Emax, 0)} MPa` : ''}`],
     ['E<sub>0</sub>/' + ten, `${fmt(E0, 1)}/${fmt(m.Edc, 2)} = ${fmt(m.e0e1, 3)}`],
-    [m.theoE1 ? 'E<sub>ch</sub>/E<sub>1</sub> (công thức E.1, H/D > 2)' : 'E<sub>ch</sub>/E<sub>1</sub> (Hình 2)', fmt(m.ratio, 3)],
+    [m.tay ? 'E<sub>ch</sub>/E<sub>1</sub> (Hình 2, nhập tay)' : m.theoE1 ? 'E<sub>ch</sub>/E<sub>1</sub> (công thức E.1, H/D > 2)' : 'E<sub>ch</sub>/E<sub>1</sub> (Hình 2)', fmt(m.ratio, 3)],
   ];
 }
 function renderSteps(r) {
@@ -803,7 +841,7 @@ function renderSteps(r) {
       ['E<sub>1</sub>/E<sub>2</sub> = E<sub>tb</sub><sup>dc</sup>/E<sub>0</sub>', `${fmt(r.B.Edc, 2)}/${fmt(r.E0, 1)} = ${fmt(r.B.r, 3)}`],
       [`T<sub>ax</sub>/p (Hình ${r.B.hinh}, φ = ${fmt(r.phi, 0)}°)`, `${fmt(r.B.taxp, 4)}${r.B.taxpTay ? ' (nhập tay)' : ''}`],
       ['T<sub>ax</sub>', `${fmt(r.B.taxp, 4)} × ${fmt(r.p, 1)} = ${fmt(r.B.Tax, 4)} MPa`],
-      ['T<sub>av</sub> (Hình 6, H = ' + fmt(r.H, 0) + ' cm)', `${fmt(r.B.Tav, 4)} MPa`],
+      ['T<sub>av</sub> (Hình 6, H = ' + fmt(r.H, 0) + ' cm)', `${fmt(r.B.Tav, 4)} MPa${r.B.tavTay ? ' (nhập tay)' : ''}`],
       ['C<sub>tt</sub> = c·K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>', `${fmt(r.c, 3)} × ${fmt(r.B.K1, 1)} × ${fmt(r.B.K2, 2)} × ${fmt(r.K3, 1)} = ${fmt(r.B.Ctt, 4)} MPa`],
       ['T<sub>ax</sub> + T<sub>av</sub> ≤ C<sub>tt</sub>/K<sub>tr</sub>', `${fmt(r.B.sum, 4)} ${r.B.ok ? '≤' : '>'} ${fmt(r.B.lim, 4)} MPa`]]);
     r.C.forEach((x, n) => {
@@ -1025,7 +1063,7 @@ function hePDF(P, m, r, ten) {
   P.para(`H/D = ${f2(m.H, 0)}/${r.D} = ${f2(m.hd, 3)} → hệ số điều chỉnh β = ${f2(m.beta, 3)} (${m.hd > 2 ? 'biểu thức 6' : 'Bảng 11'})`, { after: 0.3 });
   P.para(`${ten} = β·E'_{tb} = ${f2(m.beta, 3)} × ${f2(m.Etb, 2)} = ${f2(m.beta * m.Etb, 2)} MPa` + (m.capped ? ` > E lớn nhất của các lớp, lấy ${ten} = ${f2(m.Emax, 0)} MPa` : ''), { after: 0.3 });
   P.para(`Từ tỷ số E_{0}/${ten} = ${f2(r.E0, 1)}/${f2(m.Edc, 2)} = ${f2(m.e0e1, 3)} và H/D = ${f2(m.hd, 3)}, ` +
-    (m.theoE1 ? `tính theo công thức E.1 (H/D > 2) được` : `tra toán đồ Hình 2 được`) + ` E_{ch}/${ten} = ${f2(m.ratio, 3)}`, { after: 0.3 });
+    (m.tay ? `tra toán đồ Hình 2 (tra tay) được` : m.theoE1 ? `tính theo công thức E.1 (H/D > 2) được` : `tra toán đồ Hình 2 được`) + ` E_{ch}/${ten} = ${f2(m.ratio, 3)}`, { after: 0.3 });
 }
 const ketLuan = (P, ok, yes, no) => P.para(`**Kết luận:** ${ok ? yes : '~~' + no + '~~'}`, { after: 2 });
 
@@ -1094,7 +1132,7 @@ function buildPDF() {
     P.para(`H/D = ${f2(r.B.H, 0)}/${r.D} = ${f2(r.B.hd, 3)} → β = ${f2(r.B.beta, 3)}; E^{dc}_{tb} = ${f2(r.B.beta, 3)} × ${f2(r.B.Etb, 2)} = ${f2(r.B.Edc, 2)} MPa${r.B.capped ? ' (lấy bằng E lớn nhất)' : ''}`, { after: 0.3 });
     P.para(`E_{1}/E_{2} = E^{dc}_{tb}/E_{0} = ${f2(r.B.Edc, 2)}/${f2(r.E0, 1)} = ${f2(r.B.r, 3)}; góc ma sát trong của đất nền φ = ${f2(r.phi, 0)}°`, { after: 0.3 });
     P.para(`Tra toán đồ Hình ${r.B.hinh} được T_{ax}/p = ${f2(r.B.taxp, 4)}${r.B.taxpTay ? ' (tra tay)' : ''} → T_{ax} = ${f2(r.B.taxp, 4)} × ${f2(r.p, 1)} = ${f2(r.B.Tax, 4)} MPa`, { after: 0.3 });
-    P.para(`Tra toán đồ Hình 6 với H = ${f2(r.H, 0)} cm, φ = ${f2(r.phi, 0)}° được T_{av} = ${f2(r.B.Tav, 4)} MPa → T_{ax} + T_{av} = **${f2(r.B.sum, 4)} MPa**`, { after: 0.3 });
+    P.para(`Tra toán đồ Hình 6 với H = ${f2(r.H, 0)} cm, φ = ${f2(r.phi, 0)}° được T_{av} = ${f2(r.B.Tav, 4)} MPa${r.B.tavTay ? ' (tra tay)' : ''} → T_{ax} + T_{av} = **${f2(r.B.sum, 4)} MPa**`, { after: 0.3 });
     P.para(`C_{tt} = C·K_{1}·K_{2}·K_{3} = ${f2(r.c, 3)} × ${f2(r.B.K1, 1)} × ${f2(r.B.K2, 2)} × ${f2(r.K3, 1)} = ${f2(r.B.Ctt, 4)} MPa (K_{1} = 0,6; K_{2} theo Bảng 12 với N_{tt} = ${f2(r.Ntt, 0)}; K_{3} theo loại đất)`, { after: 0.3 });
     P.para(`Với độ tin cậy ${f2(r.R, 2)}, Bảng 8: ${Ktr} = ${f2(r.Ktr, 2)} → C_{tt}/${Ktr} = ${f2(r.B.Ctt, 4)}/${f2(r.Ktr, 2)} = **${f2(r.B.lim, 4)} MPa**`);
     ketLuan(P, r.B.ok, `T_{ax} + T_{av} = ${f2(r.B.sum, 4)} ≤ ${f2(r.B.lim, 4)} MPa – kết cấu đảm bảo điều kiện chống trượt trong nền đất.`,
@@ -1197,7 +1235,7 @@ function load() {
     if (Array.isArray(s.layers) && s.layers.length) layers = s.layers;
     if (Array.isArray(s.xes)) xes = s.xes;
     if (s.eycMode) eycMode = s.eycMode;
-    if (s.over) over = { taxp: s.over.taxp || '', sku: s.over.sku || {} };
+    if (s.over && s.over.mode) over = { mode: s.over.mode || {}, val: s.over.val || {} };
   } catch {}
 }
 
