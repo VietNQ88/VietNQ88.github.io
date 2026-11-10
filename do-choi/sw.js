@@ -1,5 +1,5 @@
 // Service worker: lưu app vào máy để dùng khi không có mạng
-const CACHE = 'do-choi-20261110-164902';
+const CACHE = 'do-choi-20261110-174559';
 const CORE = [
   './', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -18,6 +18,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+  if (url.pathname.endsWith('/cau-hinh.json')) return;   // công tắc khóa: luôn hỏi máy chủ, không dùng bản lưu
   // Trang app: lấy bản mới khi có mạng, mất mạng thì dùng bản đã lưu
   if (e.request.mode === 'navigate' || (url.origin === location.origin && url.pathname.endsWith('.html'))) {
     e.respondWith(fetch(e.request)
