@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b6e8a">
-<title>Ứng dụng tính toán</title>
+<title>Ứng dụng trong thiết kế công trình</title>
 <link rel="icon" href="kcad/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
@@ -40,7 +40,7 @@ h2{margin:0 0 8px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em
 <body>
 <div class="wrap">
   <header>
-    <h1>Ứng dụng tính toán</h1>
+    <h1>Ứng dụng trong thiết kế công trình</h1>
     <p>Các app tính nhỏ cho công trình giao thông, dùng được trên điện thoại và khi không có mạng.</p>
   </header>
   <main id="groups"></main>
@@ -48,17 +48,19 @@ h2{margin:0 0 8px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em
 </div>
 <div class="toast" id="toast" hidden></div>
 <script>
+// Thứ tự các mục trên trang
+const NHOM = ['Bản vẽ kết cấu', 'Bảng tính kết cấu', 'Biện pháp thi công và phụ trợ'];
 // Danh sách app: thêm app mới vào đây (ngay = ngày đưa lên, app mới hiện trước)
 const APPS = [
-{ nhom: 'Móng cọc', ten: 'Bản vẽ cọc khoan nhồi', mota: 'Tự bố trí lồng thép, nối chồng so le, cóc nối, ống siêu âm; xuất bản vẽ DXF (AutoCAD), PDF và khối lượng Excel (đăng nhập bằng email)', link: 'https://coc-khoan-nhoi.pages.dev/', icon: 'coc-khoan-nhoi/icon-192.png', ngay: '2026-11-20' },
-  { nhom: 'Kết cấu', ten: 'Cống hộp BTCT', mota: 'Giải khung kín trên nền Winkler, hoạt tải HL-93, kiểm toán BTCT, sức kháng nền và độ lún theo TCVN 11823:2017, xuất thuyết minh PDF (đăng nhập bằng email)', link: 'https://cong-hop-btct.pages.dev/', icon: 'cong-hop/icon-192.png', ngay: '2026-11-15' },
-  { nhom: 'Kết cấu', ten: 'Tường chắn BTCT', mota: 'Áp lực đất Coulomb/Culmann, ổn định nền, kết cấu BTCT theo TCVN 11823:2017, xuất thuyết minh PDF (đăng nhập bằng email)', link: 'https://tuong-chan-btct.pages.dev/', icon: 'tuong-chan/icon-192.png', ngay: '2026-11-13' },
-  { nhom: 'Đường', ten: 'Kết cấu áo đường mềm', mota: 'Kiểm toán độ võng, cắt trượt, kéo uốn theo TCCS 38:2022, xuất bảng tính PDF', link: 'kcad/', icon: 'kcad/icon-192.png', ngay: '2026-11-10' },
-  { nhom: 'Móng cọc', ten: 'Độ chối cọc đóng', mota: 'Độ chối thiết kế và kiểm tra độ chối đo theo TCVN 9394:2012, xuất bảng tính PDF', link: 'do-choi/', icon: 'do-choi/icon-192.png', ngay: '2026-11-09' },
+  { nhom: 'Bản vẽ kết cấu', ten: 'Bản vẽ cọc khoan nhồi', mota: 'Tự bố trí lồng thép, nối chồng so le, cóc nối, ống siêu âm; xuất bản vẽ DXF (AutoCAD), PDF và khối lượng Excel (đăng nhập bằng email)', link: 'https://coc-khoan-nhoi.pages.dev/', icon: 'coc-khoan-nhoi/icon-192.png', ngay: '2026-11-20' },
+  { nhom: 'Bảng tính kết cấu', ten: 'Cống hộp BTCT', mota: 'Giải khung kín trên nền Winkler, hoạt tải HL-93, kiểm toán BTCT, sức kháng nền và độ lún theo TCVN 11823:2017, xuất thuyết minh PDF (đăng nhập bằng email)', link: 'https://cong-hop-btct.pages.dev/', icon: 'cong-hop/icon-192.png', ngay: '2026-11-15' },
+  { nhom: 'Bảng tính kết cấu', ten: 'Tường chắn BTCT', mota: 'Áp lực đất Coulomb/Culmann, ổn định nền, kết cấu BTCT theo TCVN 11823:2017, xuất thuyết minh PDF (đăng nhập bằng email)', link: 'https://tuong-chan-btct.pages.dev/', icon: 'tuong-chan/icon-192.png', ngay: '2026-11-13' },
+  { nhom: 'Bảng tính kết cấu', ten: 'Kết cấu áo đường mềm', mota: 'Kiểm toán độ võng, cắt trượt, kéo uốn theo TCCS 38:2022, xuất bảng tính PDF', link: 'kcad/', icon: 'kcad/icon-192.png', ngay: '2026-11-10' },
+  { nhom: 'Biện pháp thi công và phụ trợ', ten: 'Độ chối cọc đóng', mota: 'Độ chối thiết kế và kiểm tra độ chối đo theo TCVN 9394:2012, xuất bảng tính PDF', link: 'do-choi/', icon: 'do-choi/icon-192.png', ngay: '2026-11-09' },
 ];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const apps = APPS.slice().sort((a, b) => b.ngay.localeCompare(a.ngay));
-const nhom = [...new Set(apps.map(a => a.nhom))];
+const nhom = [...new Set([...NHOM, ...apps.map(a => a.nhom)])].filter(g => apps.some(a => a.nhom === g));
 document.getElementById('groups').innerHTML = nhom.map(g => `<section style="margin-bottom:18px"><h2>${esc(g)}</h2><div class="list">` +
   apps.filter(a => a.nhom === g).map(a => `<div class="app"><img src="${a.icon}" alt=""><div class="txt"><b>${esc(a.ten)}</b><span>${esc(a.mota)}</span></div>
     <div class="act"><a class="btn" href="${a.link}">Mở</a><button class="btn ghost" type="button" data-link="${a.link}">Sao chép link</button></div></div>`).join('') + '</div></section>').join('');
