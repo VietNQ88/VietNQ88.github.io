@@ -19,8 +19,16 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
 .wrap{max-width:720px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-left,0px)) 48px max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.me{display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.me img{width:72px;height:72px;border-radius:50%;object-fit:cover;flex:none;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+.me .ten{margin:0;font-size:1.2rem;font-weight:700;line-height:1.25}
+.me .nghe{margin:1px 0 0;color:var(--muted);font-size:.86rem}
+.me a{display:inline-block;margin-top:3px;color:var(--accent);font-size:.84rem;text-decoration:none;overflow-wrap:anywhere}
+.me a:hover{text-decoration:underline}
 h1{margin:0;font-size:1.45rem;letter-spacing:-.01em}
 header p{margin:2px 0 0;color:var(--muted);font-size:.86rem}
+footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
+footer .slogan{margin-left:auto;font-style:italic;font-size:.74rem;letter-spacing:.02em;text-align:right}
 h2{margin:0 0 8px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .list{display:flex;flex-direction:column;gap:8px}
 .app{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
@@ -39,12 +47,24 @@ h2{margin:0 0 8px;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em
 </head>
 <body>
 <div class="wrap">
+  <section class="me">
+    <img src="trang%20dem.jpg" alt="Ảnh đại diện KS Nguyễn Quốc Việt">
+    <div>
+      <p class="ten">KS Nguyễn Quốc Việt</p>
+      <p class="nghe">Kỹ sư công trình giao thông</p>
+      <a href="mailto:nguyenquocviet1088@gmail.com">✉ nguyenquocviet1088@gmail.com</a>
+    </div>
+  </section>
   <header>
     <h1>Ứng dụng trong thiết kế công trình</h1>
     <p>Các app tính nhỏ cho công trình giao thông, dùng được trên điện thoại và khi không có mạng.</p>
   </header>
   <main id="groups"></main>
   <p class="note">Mỗi app có link riêng để gửi cho người khác. Trên iPhone: mở app bằng Safari → nút Chia sẻ → <b>Thêm vào MH chính</b> để có icon như app thường.</p>
+  <footer>
+    <span>© VietNQ_TDIC</span>
+    <span class="slogan">FORTUNE through COURAGE, LOVE through COMPASSION</span>
+  </footer>
 </div>
 <div class="toast" id="toast" hidden></div>
 <script>
