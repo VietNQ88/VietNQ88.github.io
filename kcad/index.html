@@ -206,6 +206,8 @@ select.sel,input.txt{border:1px solid var(--line);border-radius:8px;background:v
 
 <script>
 // Lõi tính kết cấu áo đường mềm theo TCCS 38:2022/TCĐBVN — không phụ thuộc giao diện (chạy được cả trong Node để kiểm tra)
+// Bản tổng quát hóa (11/2026): lề gia cố, kết cấu tăng cường trên mặt đường cũ, trượt trong lớp vật liệu kém dính,
+// kéo uốn lớp gia cố chất liên kết vô cơ, kiểm tra cấu tạo, bảng tổng hợp hệ số sử dụng. Mọi trường mới đều tùy chọn.
 (function (root) {
 'use strict';
 
@@ -253,7 +255,7 @@ const F1 = [[9e6, 20], [6e6, 15], [4e6, 12.5], [2e6, 10], [1e6, 9], [0.5e6, 8], 
 const H2R = [1, .9, .8, .7, .6, .5, .4, .3, .2, .1, 0];
 const H2C = [0, .2, .4, .6, .8, 1, 1.2, 1.4, 1.6, 1.8, 2, 2.2];
 const H2 = [
-  [.89, .895, .9, .91, .92, .93, .95, .966, .975, .988, 1, 1], [.89, .895, .9, .91, .92, .93, .95, .966, .975, .988, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [.9, .9, .9, .91, .92, .93, .95, .966, .975, .988, 1, 1],
   [.79, .81, .83, .853, .87, .888, .91, .93, .95, .97, .99, .99], [.69, .723, .75, .799, .829, .85, .865, .878, .892, .91, .92, .92],
   [.59, .635, .69, .74, .778, .803, .829, .846, .856, .87, .882, .882], [.49, .54, .602, .662, .713, .743, .778, .797, .818, .832, .844, .844],
   [.39, .445, .514, .58, .635, .68, .718, .746, .765, .78, .795, .795], [.29, .342, .416, .486, .54, .593, .632, .671, .702, .72, .735, .735],
@@ -288,11 +290,39 @@ const H4 = [
 const PHI = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46];
 const TANG4 = [32.272, 36.5475, 40.1795, 43.0725, 46.6155, 49.333, 52.404, 55.8645, 59.0785, 63.2215, 67.526, 72.8875, 77.7225, 83.121, 88.8665, 96.875, 104.071, 112.5355, 122.1615, 131.9325, 146.3, 159.698, 179.478];
 
-// Hình 5 (Tax/p, H/D = 2÷4): Tax/p = y / tang / 1000
+// Hình 5 (Tax/p, toán đồ phủ H/D = 0÷4): Tax/p = y / tang / 1000.
+// Hàng H/D = 2÷4 lấy từ sheet td3_3 của bảng tính mẫu; hàng H/D = 1,5÷1,95 đo bổ sung trên bản quét TCCS 38 (200 dpi, lọc hướng nét),
+// hiệu chỉnh từng cột cho khớp hàng H/D = 2 — dùng cho vùng chồng với Hình 4. Cột E1/E2 = 15 hàng H/D 1,05÷2,0 đo lại trên bản quét 300 dpi
+// (bảng mẫu và lần đo trước cao hơn ~4%; từ H/D 2,1 bảng mẫu khớp bản quét ±0,6)
 const H5R = [5, 7, 10, 15, 20, 25, 30, 40, 50];
-const H5X = [2, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4];
+// Hàng H/D = 0,475÷1,45: chỉ các đường còn nằm trong khung toán đồ (null = đường đã ra ngoài khung, dùng Hình 4).
+// Hàng 0,475÷1,025 đo bổ sung (300 dpi, lọc hướng nét, cột theo lưới cục bộ; thang y khớp hàng H/D = 1,95 sai ≤ 2 px);
+// H/D < 0,45 mọi đường E1/E2 đều ra ngoài khung
+const H5L = [0.475, 0.525, 0.575, 0.625, 0.675, 0.725, 0.775, 0.825, 0.875, 0.925, 0.975, 1.025, 1.05, 1.15, 1.25, 1.375, 1.45];
+const H5LO = [
+  [null, null, null, null, null, null, null, null, 227.097], [null, null, null, null, null, null, null, 233.755, 210.06],
+  [null, null, null, null, null, null, null, 216.914, 195.177], [null, null, null, null, null, null, null, 203.01, 180.49],
+  [null, null, null, null, null, null, 226.705, 189.106, 168.349], [null, null, null, null, null, null, 210.843, 175.79, 155.816],
+  [null, null, null, null, null, 231.209, 198.898, 163.649, 145.045], [null, null, null, null, null, 216.718, 186.757, 153.27, 135.841],
+  [null, null, null, null, 235.713, 203.206, 174.224, 142.891, 126.05], [null, null, null, null, 220.047, 189.498, 163.257, 133.296, 117.042],
+  [null, null, null, null, 206.143, 177.748, 153.466, 124.092, 108.621], [null, null, null, 225.922, 193.023, 165.411, 142.891, 114.3, 100.201],
+  [null, null, null, 217.7, 183.758, 158.164, 135.856, 109.534, 96.244],
+  [null, null, null, 192.53, 160.999, 139.333, 119.026, 95.954, 80.691],
+  [null, null, 203.749, 170.11, 142.954, 122.603, 103.997, 84.589, 73.32],
+  [null, null, 176.774, 146.51, 121.902, 104.774, 89.07, 72.921, 62.513],
+  [null, 193.101, 162.238, 134.37, 111.375, 95.86, 81.354, 67.087, 57.464]];
+const H5X = [1.5, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4];
 const H5 = [
-  [147.038, 112.712, 96.862, 83.547, 65.762, 56.978, 49.192, 40.634, 34.033], [134.998, 105.222, 90.44, 74.011, 61.043, 52.894, 45.66, 38.355, 31.487],
+  [240.898, 183.42, 154.217, 127.03, 105.66, 91.025, 77.445, 63.868, 54.534],
+  [217.908, 164.518, 139.477, 113.96, 95.034, 82.213, 69.53, 58.135, 49.282],
+  [207.313, 156.117, 132.358, 107.84, 90.222, 78.107, 66.224, 55.218, 46.657],
+  [197.317, 148.916, 126.141, 102.31, 86.012, 74.202, 63.118, 52.704, 44.536],
+  [187.221, 140.415, 119.523, 98.14, 82.002, 70.797, 60.112, 50.39, 42.516],
+  [178.725, 134.514, 114.409, 93.84, 78.493, 67.593, 57.808, 48.177, 40.597],
+  [168.829, 128.414, 109.095, 89.72, 74.985, 64.288, 55.303, 45.864, 38.577],
+  [160.932, 121.613, 104.683, 86.11, 71.777, 61.684, 53.3, 44.154, 36.962],
+  [153.135, 117.312, 100.572, 82.87, 68.669, 59.481, 50.795, 42.243, 35.447],
+  [147.038, 112.712, 96.862, 79.64, 65.762, 56.978, 49.192, 40.634, 34.033], [134.998, 105.222, 90.44, 74.011, 61.043, 52.894, 45.66, 38.355, 31.487],
   [122.723, 98.129, 84.441, 68.384, 56.671, 49.136, 42.287, 35.282, 29.128], [112.951, 92.094, 79.191, 63.881, 52.696, 45.759, 39.417, 32.881, 27.238],
   [104.7, 86.943, 74.5, 59.85, 49.036, 42.473, 36.865, 30.781, 25.364], [97.749, 81.766, 69.745, 55.744, 45.522, 39.441, 34.44, 28.965, 23.8],
   [91.397, 77.146, 65.803, 52.416, 42.674, 37.155, 32.31, 27.404, 22.192], [86.178, 72.71, 62.018, 49.116, 40.348, 34.869, 30.41, 25.803, 20.858],
@@ -320,6 +350,30 @@ const H7 = [
   [38, 42, 48, 50, 52, 55, 58, 59, 60, 63, 66, 69, 72],
   [36, 37, 39, 42, 45, 47, 50, 54, 55, 56, 57, 58, 59],
   [26, 27, 29, 32, 35, 37, 40, 44, 45, 46, 47, 48, 49]];
+
+// Hình 8 (σku đơn vị ở lớp liền khối của tầng móng) số hóa từ bản quét TCCS 38 (lọc theo hướng nét, 200 dpi):
+// đường cong E1/E2 cho tung độ y theo h/D (hàng H8X, cột H8R), đổi về đơn vị σ̄ku; tia E2/E3 có hệ số góc H8S; σ̄ku = y / hệ số góc tia
+const H8X = [0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.25, 1.45, 1.55, 1.65, 1.75, 1.85, 1.95];
+const H8R = [1, 2, 3, 4, 5, 7, 10, 15, 25];
+const H8 = [
+  [1.227, 1.1366, 1.0909, 1.0336, 0.9825, 0.9216, 0.8482, 0.7802, 0.6897],
+  [1.1357, 1.0604, 1.0004, 0.9503, 0.8966, 0.8437, 0.773, 0.7103, 0.619],
+  [1.0506, 0.9682, 0.9199, 0.8715, 0.8276, 0.7766, 0.7022, 0.6449, 0.5599],
+  [0.9754, 0.8984, 0.85, 0.8034, 0.764, 0.7148, 0.6405, 0.5867, 0.5097],
+  [0.91, 0.8357, 0.7873, 0.7408, 0.7031, 0.6566, 0.5849, 0.5348, 0.4649],
+  [0.85, 0.7784, 0.7282, 0.6852, 0.6485, 0.6028, 0.5375, 0.49, 0.4255],
+  [0.7927, 0.7228, 0.6727, 0.6333, 0.5975, 0.5563, 0.4954, 0.4497, 0.3915],
+  [0.7372, 0.6691, 0.6225, 0.5814, 0.5491, 0.5115, 0.456, 0.4121, 0.3611],
+  [0.6861, 0.6252, 0.5778, 0.5402, 0.5079, 0.4712, 0.4202, 0.379, 0.3297],
+  [0.6002, 0.5455, 0.499, 0.4658, 0.4345, 0.404, 0.3629, 0.3217, 0.2787],
+  [0.4739, 0.4255, 0.3879, 0.3629, 0.3351, 0.3109, 0.2769, 0.2446, 0.2097],
+  [0.4202, 0.379, 0.3449, 0.319, 0.2966, 0.2733, 0.2446, 0.2124, 0.1829],
+  [0.3772, 0.3378, 0.3073, 0.2867, 0.2626, 0.2429, 0.2142, 0.1891, 0.1605],
+  [0.3378, 0.302, 0.276, 0.2572, 0.2357, 0.2142, 0.1918, 0.1685, 0.1426],
+  [0.3055, 0.2733, 0.2491, 0.2303, 0.2106, 0.1945, 0.173, 0.1551, 0.1282],
+  [0.2769, 0.2464, 0.2267, 0.2097, 0.1909, 0.1748, 0.1569, 0.1381, 0.1139]];
+const H8B = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 25];
+const H8S = [6.0586, 3.7952, 3.0646, 2.6336, 2.3889, 2.2316, 2.0872, 1.9806, 1.8788, 1.7857, 1.7065, 1.654, 1.6129, 1.5749, 1.4532, 1.3177];
 
 // Bảng B.4: đặc trưng tính toán của đất nền theo độ ẩm tương đối a = W/Wnh (độ chặt K ≥ 0,95, đầm nén tiêu chuẩn)
 const B4A = [0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90];
@@ -362,24 +416,44 @@ function beta(hd) { return hd > 2 ? 1.114 * Math.pow(hd, 0.12) : lin(B11X, B11, 
 // Ech/E1 theo Hình 2 (bảng số hóa); H/D > 2 dùng công thức E.1
 function echRatio(e0e1, hd) {
   e0e1 = Math.min(1, e0e1);
-  if (hd > 2) { const a = e0e1; return 1.05 * a / ((1 + a) / Math.sqrt(1 + 4 * hd * hd * Math.pow(a, -0.67)) + a); }
+  // Công thức E.1 đúng như văn bản TCCS 38 (mẫu số (1 + E0/E1)/√… + E0/E1); kiểm: H/D = 1,909, E0/E1 = 0,098 → 0,450 như Phụ lục E
+  const f = a => 1.05 * a / ((1 + a) / Math.sqrt(1 + 4 * hd * hd * Math.pow(a, -0.67)) + a);
+  if (hd > 2) return Math.min(1, f(e0e1));
   const rs = H2R.slice().reverse(), tab = H2C.map((_, c) => rs.map((__, k) => H2[H2R.length - 1 - k][c]));
-  return bilin(H2C, rs, tab, hd, e0e1);
+  if (e0e1 >= 0.1) return bilin(H2C, rs, tab, hd, e0e1);
+  // E0/E1 < 0,1: bảng chỉ có hàng 0,1 và 0 nên nội suy tuyến tính cho Ech thấp tới 30–45 %;
+  // dùng dạng công thức E.1, hiệu chỉnh cho khớp bảng tại E0/E1 = 0,1
+  return e0e1 > 0 ? f(e0e1) * bilin(H2C, rs, tab, hd, 0.1) / f(0.1) : 0;
 }
 
-// Tax/p theo Hình 4 (H/D ≤ 2) hoặc Hình 5 (H/D > 2)
+// Tax/p theo Hình 4 (H/D ≤ 2) hoặc Hình 5 (H/D > 2). Vùng H/D = 1,5÷2 hai toán đồ của TCCS chồng nhau nhưng lệch nhau
+// (Hình 5 lớn hơn tới 35–38% khi E1/E2 lớn): lấy giá trị lớn hơn của hai hình (thiên an toàn, liên tục tại H/D = 2)
 function taxP(hd, r, phi) {
   const notes = [];
   if (phi < 2 || phi > 46) notes.push(`φ = ${phi}° ngoài phạm vi toán đồ (2°÷46°), lấy giá trị biên`);
+  const h5 = () => bilin(H5X, H5R, H5, hd, r) / lin(PHI, TANG5, phi) / 1000;
+  // Hình 5 vùng H/D 0,425÷1,5: ô trống (đường ra ngoài khung) và hàng H/D = 0,425 điền bằng giá trị Hình 4 quy về đơn vị Hình 5
+  // → chuyển dần từ Hình 4 sang Hình 5, không nhảy bậc
+  const t5 = lin(PHI, TANG5, phi) * 1000, H5B = 0.425;
+  const h5lo = () => {
+    const xs = [H5B, ...H5L, H5X[0]], rows = [H5R.map(() => null), ...H5LO, H5[0]];
+    const tab = rows.map((row, i) => row.map((y, j) => y != null ? y : bilin(H4X, H4R, H4, xs[i], H5R[j]) / lin(PHI, TANG4, phi) / 10 * t5));
+    return bilin(xs, H5R, tab, hd, r) / t5;
+  };
   if (hd <= 2) {
     if (r < 2 || r > 50) notes.push(`E1/E2 = ${r.toFixed(2)} ngoài phạm vi Hình 4 (2÷50), lấy giá trị biên`);
-    const y = bilin(H4X, H4R, H4, hd, r), t = lin(PHI, TANG4, phi);
-    return { v: y / t / 10, hinh: 4, notes };
+    const v4 = bilin(H4X, H4R, H4, hd, r) / lin(PHI, TANG4, phi) / 10;
+    if (hd >= H5B && r >= 5) {
+      const v5 = hd >= H5X[0] ? h5() : h5lo();
+      if (v5 == null) return { v: v4, hinh: 4, v4, notes };
+      if (v5 > v4) return { v: v5, hinh: 5, v4, v5, notes: [...notes, `H/D = ${hd.toFixed(3)} trong vùng chồng Hình 4/Hình 5: lấy Hình 5 (lớn hơn Hình 4 ${((v5 / v4 - 1) * 100).toFixed(0)}%)`] };
+      return { v: v4, hinh: 4, v4, v5, notes };
+    }
+    return { v: v4, hinh: 4, notes };
   }
   if (hd > 4) notes.push(`H/D = ${hd.toFixed(2)} > 4, ngoài phạm vi Hình 5`);
   if (r < 5 || r > 50) notes.push(`E1/E2 = ${r.toFixed(2)} ngoài phạm vi Hình 5 (5÷50), lấy giá trị biên`);
-  const y = bilin(H5X, H5R, H5, hd, r), t = lin(PHI, TANG5, phi);
-  return { v: y / t / 1000, hinh: 5, notes };
+  return { v: h5(), hinh: 5, notes };
 }
 
 // σku đơn vị theo công thức E.2 (Phụ lục E)
@@ -398,12 +472,32 @@ function skuH7(hd, r) {
   return { v: bilin(H7X, H7R, H7, hd, 20) / 100 * skuE2(hx, rr) / skuE2(hx, 20), notes };
 }
 
+// σku đơn vị theo công thức E.4 (Phụ lục E, mô tả gần đúng Hình 8): a = E1/E2, b = E2/E3
+function skuE4(hd, a, b) { return (1.29 * Math.pow(a, -0.185) / hd - 0.203 / a - 0.283) / (9.3 / b + 0.83); }
+
+// σku đơn vị theo Hình 8, nội suy tuyến tính theo h/D và theo log của E1/E2, E2/E3 (khoảng chia toán đồ gần đều theo log);
+// h/D ngoài 0,75÷1,95 lấy theo biên Hình 8 nhân tỉ lệ công thức E.4
+function skuH8(hd, a, b) {
+  const notes = [], L = Math.log;
+  if (a < 1 || a > 25) notes.push(`E1/E2 = ${a.toFixed(2)} ngoài phạm vi Hình 8 (1÷25), lấy giá trị biên`);
+  if (b < 2 || b > 25) notes.push(`E2/E3 = ${b.toFixed(2)} ngoài phạm vi Hình 8 (2÷25), lấy giá trị biên`);
+  const aa = clamp(a, 1, 25), bb = clamp(b, 2, 25);
+  const tia = lin(H8B.map(L), H8S, L(bb));
+  const tai = x => bilin(H8X, H8R.map(L), H8, x, L(aa)) / tia;
+  const x0 = clamp(hd, H8X[0], H8X[H8X.length - 1]);
+  if (x0 === hd) return { v: tai(hd), notes };
+  notes.push(`h/D = ${hd.toFixed(3)} ngoài vùng số hóa Hình 8 (0,75÷1,95): lấy biên nhân tỉ lệ công thức E.4`);
+  const r = skuE4(hd, aa, bb) / skuE4(x0, aa, bb);
+  return { v: r > 0 ? tai(x0) * r : null, notes };
+}
+
 // Eyc theo Bảng 9
 function eycB9(P, mat, N) {
   const row = (B9[P] || B9[100])[mat];
   const pts = B9N.map((n, i) => [n, row[i]]).filter(p => p[1] != null);
   if (!pts.length) return { v: null, note: 'Bảng 9 không có số liệu cho loại tầng mặt này' };
-  if (N <= pts[0][0]) return { v: pts[0][1], note: N < pts[0][0] ? `Ntt < ${pts[0][0]}: lấy giá trị đầu bảng` : '' };
+  if (N < pts[0][0]) return { v: null, note: `Ntt = ${N} < ${pts[0][0]}: ngoài phạm vi Bảng 9, Eyc lấy theo Bảng 10` };
+  if (N === pts[0][0]) return { v: pts[0][1], note: '' };
   const last = pts[pts.length - 1];
   if (N >= last[0]) return { v: last[1], note: N > last[0] ? `Ntt > ${last[0]}: vượt phạm vi Bảng 9${mat !== 'A1' ? ', nên chọn tầng mặt cấp cao hơn' : ''}` : '' };
   for (let i = 0; i < pts.length - 1; i++) if (N <= pts[i + 1][0]) {
@@ -451,14 +545,38 @@ function heMoDun(layersBU, key, D, E0, ratioTay) {
   const dt = doiTang(L), hd = dt.H / D, b = beta(hd);
   const Emax = Math.max(...L.map(l => l.E), 0);
   let Edc = b * dt.Etb, capped = false;
-  if (L.length > 1 && Edc > Emax) { Edc = Emax; capped = true; }
+  if (OPT.gioiHanEmax && L.length > 1 && Edc > Emax) { Edc = Emax; capped = true; }
   const e0e1 = E0 / Edc, ratioAuto = echRatio(e0e1, hd);
   const tay = isFinite(ratioTay) && ratioTay > 0, ratio = tay ? +ratioTay : ratioAuto;
   return { ...dt, hd, beta: b, Edc, capped, Emax, e0e1, ratio, ratioAuto, tay, Ech: ratio * Edc, theoE1: hd > 2 };
 }
 
+// Tùy chọn toàn cục (đặt lại mỗi lần gọi tinh)
+const OPT = { gioiHanEmax: true };
+
+// Hệ số phân phối trục xe theo làn fL (Phụ lục A, tham khảo 22TCN 211-06 — cần đối chiếu TCCS 38:2022)
+function traFL(soLan, coDPC) {
+  const n = +soLan || 1;
+  if (n <= 1) return 1.0;
+  if (!coDPC) return n === 2 ? 0.55 : 0.5;
+  return n <= 4 ? 0.35 : 0.3;
+}
+
+// Trượt giữa lớp phía trên (đổi tầng, Edc) và hệ phía dưới có Ech = E2 — dùng chung cho nền đất và lớp kém dính
+function kiemTruot(trenBU, E2, D, p, phi, c, K1, K2, K3, Ktr, tay, warns, nhan) {
+  const co = v => v !== undefined && v !== null && v !== '' && isFinite(v);
+  const U = heMoDun(trenBU, 'Etr', D, E2);
+  const r = U.Edc / E2, tx = taxP(U.hd, r, phi);
+  tx.notes.forEach(n => warns.push(`${nhan} – Tax/p: ${n}`));
+  const taxpTay = co(tay.taxp) && tay.taxp > 0, taxp = taxpTay ? +tay.taxp : tx.v;
+  const tavAuto = U.H * (0.005 - 0.0003 * phi) / 100, tavTay = co(tay.tav), Tav = tavTay ? +tay.tav : tavAuto;
+  const Tax = taxp * p, Ctt = c * K1 * K2 * K3, lim = Ctt / Ktr, sum = Tax + Tav;
+  return { ...U, E2, r, phi, c, K1, K2, K3, hinh: tx.hinh, taxpAuto: tx.v, taxpTay, taxp, Tax, tavAuto, tavTay, Tav, Ctt, lim, sum, ok: sum <= lim };
+}
+
 // ---------- Tính toàn bộ ----------
 function tinh(inp) {
+  OPT.gioiHanEmax = inp.gioiHanEmax !== false;
   const P = +inp.P === 120 ? 120 : 100, { p, D } = TAI[P];
   const matIdx = Math.max(0, MAT.indexOf(inp.mat)), mat = MAT[matIdx];
   const duong = DUONG[inp.duong] || DUONG[8];
@@ -472,7 +590,16 @@ function tinh(inp) {
     qd = quyDoiTruc(inp.xes || [], P);
     Ntt = Math.round(qd.Ntk * (+inp.fL || 0));
   } else Ntt = +inp.Ntt || 0;
+  // Vị trí: phần xe chạy K1 = 0,6; lề gia cố K1 = 0,9 (điều 9.3.4).
+  // Lề không có dải phân cách bên: Ntt lề = 35–50% Ntt làn liền kề, đường ≤ 2 làn lấy 50%, ≥ 4 làn lấy 35% (điều 7.11)
+  const viTri = inp.viTri === 'le' ? 'le' : 'xe', K1 = viTri === 'le' ? 0.9 : 0.6;
+  const NttLan = Ntt;
+  const heSoLe = viTri === 'le' ? (+inp.heSoLe > 0 ? +inp.heSoLe : (+inp.fL || 0.55) >= 0.55 ? 0.5 : 0.35) : 1;
+  if (viTri === 'le') Ntt = Math.round(Ntt * heSoLe);
   const q = (+inp.q || 0) / 100, t = +inp.t || 15;
+  // Ne theo biểu thức A.2 với N1 = số trục năm đầu suy từ Ntt năm cuối thời hạn t (khi tLop = t trùng biểu thức A.3)
+  const N1 = q > 0 ? Ntt / Math.pow(1 + q, t - 1) : Ntt;
+  const NeOf = tLop => (q > 0 ? (Math.pow(1 + q, tLop) - 1) / q : tLop) * 365 * N1;
   const Ne = tinhNe(Ntt, q, t);
 
   // Eyc
@@ -489,9 +616,16 @@ function tinh(inp) {
   // Kết cấu: inp.layers xếp từ trên xuống
   const layers = (inp.layers || []).map(l => ({ ...l, h: +l.h || 0, Ev: +l.Ev || 0, Etr: +l.Etr || 0, Eku: +l.Eku || 0, Rku: +l.Rku || 0, k2: +l.k2 || 1 })).filter(l => l.h > 0);
   const BU = layers.slice().reverse();
-  const E0 = +inp.E0 || 0, c = +inp.c || 0, phi = +inp.phi || 0, K3 = +inp.K3 || 1.5, K1 = 0.6;
+  // Nền: 'dat' = nền đất (mặc định); 'cu' = mặt đường cũ (kết cấu tăng cường), E0 = Ech mặt đường cũ đo/tính
+  const nenCu = inp.nen === 'cu';
+  const E0 = nenCu ? (+inp.Ecu || 0) : (+inp.E0 || 0), c = +inp.c || 0, phi = +inp.phi || 0, K3 = +inp.K3 || 1.5;
+  if (!(E0 > 0)) warns.push(nenCu ? 'Chưa nhập mô đun đàn hồi chung mặt đường cũ Ecu' : 'Chưa nhập E0 của nền đất');
   const H = layers.reduce((a, l) => a + l.h, 0);
   const capA = mat !== 'B1';
+  // K2 khi kiểm toán trượt: Bảng 12 theo Ntt; lề gia cố lấy 1,0 (tầng mặt B1: 1,23) — chú thích 2 Bảng 12
+  const K2tr = viTri === 'le' ? (mat === 'B1' ? 1.23 : 1.0) : traK2(Ntt);
+  // Thời hạn tính Ne cho k1 (điều 9.4.3): BTN chặt loại I, BTN polime (k2 = 1,0) 15 năm; BTN và hỗn hợp nhựa khác (k2 = 0,8) 10 năm
+  const tKu = l => (+l.k2 >= 1 ? 15 : 10);
 
   // Giá trị tra toán đồ nhập tay: { A, taxp, tav, m: {i}, sku: {i} }, bỏ trống = tự tra
   const tay = inp.tay || {}, co = v => v !== undefined && v !== null && v !== '' && isFinite(v);
@@ -507,17 +641,23 @@ function tinh(inp) {
   B.taxpAuto = tx.v; B.hinh = tx.hinh; tx.notes.forEach(n => warns.push('Tax/p: ' + n));
   B.taxpTay = co(tay.taxp) && tay.taxp > 0; B.taxp = B.taxpTay ? +tay.taxp : tx.v;
   B.Tax = B.taxp * p;
-  B.tavAuto = H * (0.005 - 0.0003 * phi) / 100;          // Hình 6 (tuyến tính hóa)
-  B.tavTay = co(tay.tav); B.Tav = B.tavTay ? +tay.tav : B.tavAuto;   // Tav có thể âm
-  B.K2 = traK2(Ntt); B.K1 = K1; B.K3 = K3; B.c = c;
+  B.tavAuto = H * (0.005 - 0.0003 * phi) / 100;          // Hình 6: các tia thẳng qua gốc, khớp đúng toán đồ (φ = 5°÷40°)
+  B.tavTay = co(tay.tav); B.Tav = B.tavTay ? +tay.tav : B.tavAuto;   // Tav giữ nguyên dấu (âm khi φ > 16,7°), không lấy trị tuyệt đối
+  if (!B.tavTay && (phi < 5 || phi > 40)) warns.push(`Tav: φ = ${phi}° ngoài phạm vi Hình 6 (5°÷40°), ngoại suy tuyến tính`);
+  B.K2 = K2tr; B.K1 = K1; B.K3 = K3; B.c = c;
   B.Ctt = c * K1 * B.K2 * K3;
   B.lim = B.Ctt / Ktr; B.sum = B.Tax + B.Tav; B.ok = B.sum <= B.lim;
+  B.boQua = nenCu;
+  if (nenCu) { B.ok = true; warns.push('Kết cấu tăng cường trên mặt đường cũ: không kiểm toán cắt trượt nền đất theo c, φ (mục B chỉ để tham khảo)'); }
 
   // C. Kéo uốn các lớp bê tông nhựa
-  const k1 = 11.11 / Math.pow(Ne, 0.22);
+  const k1goc = 11.11 / Math.pow(Ne, 0.22), k1 = inp.k1Max1 ? Math.min(1, k1goc) : k1goc;
   const C = [];
   layers.forEach((l, i) => {
+    if (l.ku && !(l.Rku > 0) && capA) warns.push(`Kéo uốn lớp ${l.ten}: chưa có Rku, nhập cường độ chịu kéo uốn để kiểm tra (điều 9.4.1)`);
     if (!l.ku || !(l.Rku > 0)) return;
+    const tL = tKu(l), NeL = NeOf(tL), k1g = 11.11 / Math.pow(NeL, 0.22), k1 = inp.k1Max1 ? Math.min(1, k1g) : k1g;
+    if (k1g > 1 && !inp.k1Max1) warns.push(`Kéo uốn lớp ${l.ten}: k1 = ${k1.toFixed(3)} > 1 (Ne < 55.000 trục), cường độ tính toán lớn hơn Rku, cân nhắc lấy k1 ≤ 1`);
     const tren = layers.slice(0, i + 1), duoi = layers.slice(i + 1);
     const h1 = tren.reduce((a, x) => a + x.h, 0);
     const E1 = tren.reduce((a, x) => a + x.Eku * x.h, 0) / h1;
@@ -530,17 +670,80 @@ function tinh(inp) {
     const sbar = skuTay ? +skuNhap : h7.v;
     const sku = sbar * p * 0.85;
     const Rtt = k1 * l.k2 * l.Rku, lim = Rtt / Kku;
-    C.push({ i, ten: l.ten, tren, duoi, h1, E1, m, Echm, hd, r, sbarAuto: h7.v, sbarE2: skuE2(Math.max(hd, 0.05), r), sbar, tay: skuTay, sku, k1, k2: l.k2, Rku: l.Rku, Rtt, lim, ok: sku <= lim });
+    C.push({ i, ten: l.ten, tren, duoi, h1, E1, m, Echm, hd, r, sbarAuto: h7.v, sbarE2: skuE2(Math.max(hd, 0.05), r), sbar, tay: skuTay, sku, tL, NeL, k1, k2: l.k2, Rku: l.Rku, Rtt, lim, ok: sku <= lim });
   });
+
+  // B2. Cắt trượt trong các lớp vật liệu kém dính (layer.kemDinh = true, có c, phi; K3 lớp mặc định 1,0)
+  //     Lớp trên = các lớp phía trên lớp xét (đổi tầng, E trượt); E2 = Ech trên mặt lớp xét (lớp xét + các lớp dưới + nền)
+  const B2 = [];
+  layers.forEach((l, i) => {
+    if (!l.kemDinh) return;
+    const nhan = `Trượt lớp ${l.ten}`;
+    if (i === 0) { warns.push(`${nhan}: lớp nằm trên cùng, không kiểm toán theo sơ đồ 2 lớp`); return; }
+    const duoiBU = layers.slice(i).reverse(), E2 = heMoDun(duoiBU, 'Etr', D, E0).Ech;
+    const tayL = (tay.b2 && tay.b2[i]) || {};
+    const r = kiemTruot(layers.slice(0, i).reverse(), E2, D, p, +l.phi || 0, +l.c || 0, K1, K2tr, +l.K3 || 1.0, Ktr, tayL, warns, nhan);
+    if (!(+l.c > 0) || !(+l.phi > 0)) warns.push(`${nhan}: chưa nhập c, φ của vật liệu`);
+    B2.push({ i, ten: l.ten, ...r });
+  });
+
+  // C2. Kéo uốn lớp gia cố chất liên kết vô cơ trong tầng móng (layer.voCo = true, có Rku; điều 9.4).
+  //     σ̄ku tra Hình 8 theo h/D (h = h1 + h2), E1/E2, E2/E3 (E3 = Ech.m dưới đáy lớp); k2 = 1,0;
+  //     k1 = 2,86/Ne^0,11 (đá, sỏi gia cố — biểu thức 13) hoặc 2,22/Ne^0,11 (đất gia cố, layer.datGC — biểu thức 14);
+  //     Ne theo thời hạn của tầng mặt đặt trên lớp móng (lớp BTN trên cùng; không có BTN thì lấy t)
+  const btnTren = layers.find(x => x.ku && x.Rku > 0);
+  const tVC = btnTren ? tKu(btnTren) : t, NeVC = NeOf(tVC);
+  const k1VC = 2.86 / Math.pow(NeVC, 0.11);
+  const CV = [];
+  layers.forEach((l, i) => {
+    if (!l.voCo || !(l.Rku > 0)) return;
+    const tren = layers.slice(0, i), duoi = layers.slice(i + 1);
+    const h1 = tren.reduce((a, x) => a + x.h, 0);
+    const E1 = h1 ? tren.reduce((a, x) => a + x.Eku * x.h, 0) / h1 : 0;
+    const m = duoi.length ? heMoDun(duoi.slice().reverse(), 'Eku', D, E0, tay.mVC && tay.mVC[i]) : null;
+    const Echm = m ? m.Ech : E0;
+    const k1L = (l.datGC ? 2.22 : 2.86) / Math.pow(NeVC, 0.11);
+    const Rtt = k1L * l.k2 * l.Rku, lim = Rtt / Kku;
+    const HD = (h1 + l.h) / D, E1E2 = E1 ? E1 / l.Eku : 1, E2Echm = l.Eku / Echm;
+    const h8 = skuH8(HD, E1E2, E2Echm);
+    h8.notes.forEach(n => warns.push(`σku lớp ${l.ten}: ${n}`));
+    const nhap = tay.skuVC && tay.skuVC[i], coTay = co(nhap) && nhap > 0;
+    const sbar = coTay ? +nhap : h8.v, sku = sbar != null ? sbar * p * 0.85 : null;
+    if (sbar == null) warns.push(`Kéo uốn lớp ${l.ten}: ngoài phạm vi Hình 8, tra tay và nhập σ̄ku`);
+    CV.push({ i, ten: l.ten, h1, E1, h2: l.h, E2: l.Eku, m, Echm, H: h1 + l.h, HD, E1E2, E2Echm, tL: tVC, NeL: NeVC,
+      k1: k1L, k2: l.k2, Rku: l.Rku, Rtt, lim, sbarAuto: h8.v, sbarE4: skuE4(HD, E1E2, E2Echm), tay: coTay, sbar, sku, ok: sku != null ? sku <= lim : null });
+  });
+
+  // Kiểm tra cấu tạo: bề dày từng lớp theo hMin/hMax khai báo (nếu có)
+  const capTao = [];
+  layers.forEach(l => {
+    if (+l.hMin > 0 && l.h < +l.hMin) capTao.push(`${l.ten}: h = ${l.h} cm < tối thiểu ${l.hMin} cm`);
+    if (+l.hMax > 0 && l.h > +l.hMax) capTao.push(`${l.ten}: h = ${l.h} cm > tối đa ${l.hMax} cm một lớp thi công`);
+  });
+  capTao.forEach(w => warns.push('Cấu tạo – ' + w));
 
   // Bề dày tối thiểu tầng mặt A1 (Bảng F.1)
   const hBTN = layers.filter(l => l.ku).reduce((a, l) => a + l.h, 0);
   const hMin = mat === 'A1' ? F1.find(f => Ne >= f[0])[1] : null;
 
-  return { P, p, D, mat, duong, R, Kdv, Ktr, Kku, qd, Ntt, q, t, Ne, e10, b9, Eyc, layers, E0, c, phi, K3, H, A, B, C, k1, capA, hBTN, hMin, warns };
+  // Bảng tổng hợp: hệ số sử dụng = trị tính / trị cho phép (độ võng: K·Eyc / Ech)
+  const kq = [];
+  kq.push({ ten: 'Độ võng đàn hồi', tinh: A.Ech, gh: A.KEyc, hsd: A.KEyc / A.Ech, ok: A.ok });
+  // Tầng mặt cấp thấp B1, B2 không kiểm tra cắt trượt và kéo uốn (TCCS 38 điều 9.1.4.3)
+  if (capA) {
+    if (!B.boQua) kq.push({ ten: 'Cắt trượt nền đất', tinh: B.sum, gh: B.lim, hsd: B.sum / B.lim, ok: B.ok });
+    B2.forEach(b => kq.push({ ten: `Cắt trượt lớp ${b.ten}`, tinh: b.sum, gh: b.lim, hsd: b.sum / b.lim, ok: b.ok }));
+    C.forEach(x => kq.push({ ten: `Kéo uốn lớp ${x.ten}`, tinh: x.sku, gh: x.lim, hsd: x.sku / x.lim, ok: x.ok }));
+    CV.forEach(x => kq.push({ ten: `Kéo uốn lớp ${x.ten} (vô cơ)`, tinh: x.sku, gh: x.lim, hsd: x.sku == null ? null : x.sku / x.lim, ok: x.ok }));
+  }
+  if (hMin != null) kq.push({ ten: 'Bề dày tầng mặt BTN (Bảng F.1)', tinh: hBTN, gh: hMin, hsd: hBTN > 0 ? hMin / hBTN : null, ok: hBTN >= hMin });
+  kq.filter(k => k.ok && k.hsd > 0.95 && !k.ten.startsWith('Bề dày')).forEach(k => warns.push(`${k.ten}: hệ số sử dụng ${k.hsd.toFixed(3).replace('.', ',')} > 0,95 – dự trữ nhỏ hơn sai số tra toán đồ, nên tra kiểm bằng toán đồ gốc`));
+  const datTatCa = kq.every(k => k.ok === true) && capTao.length === 0;
+
+  return { P, p, D, mat, duong, R, Kdv, Ktr, Kku, qd, Ntt, NttLan, heSoLe, N1, q, t, Ne, K2tr, e10, b9, Eyc, layers, E0, c, phi, K3, K1, viTri, nenCu, H, A, B, B2, C, CV, k1, k1goc, k1VC, capA, hBTN, hMin, capTao, kq, datTatCa, warns };
 }
 
-const api = { tinh, traDat, DAT, B4A, TAI, BANG8, DUONG, MAT, B9N, B9, B11X, B11, traK2, F1, beta, echRatio, taxP, skuH7, skuE2, eycB9, quyDoiTruc, tinhNe, doiTang, heMoDun, PHI };
+const api = { tinh, skuH8, skuE4, traFL, kiemTruot, traDat, DAT, B4A, TAI, BANG8, DUONG, MAT, B9N, B9, B11X, B11, traK2, F1, beta, echRatio, taxP, skuH7, skuE2, eycB9, quyDoiTruc, tinhNe, doiTang, heMoDun, PHI };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KCAD = api;
 })(this);
 
@@ -558,7 +761,7 @@ let datRes = null;   // kết quả tra Bảng B.4 gần nhất (dùng cho PDF)
 // Thư viện vật liệu (Bảng C.1, C.2 — giá trị tham khảo)
 // h: bề dày gợi ý khi chọn cho lớp mới
 const G_BTN = 'Bê tông nhựa chặt (đá dăm ≥ 50%)', G_BTN2 = 'Bê tông nhựa khác', G_NHUA = 'Hỗn hợp nhựa (không kiểm tra kéo uốn)',
-  G_MONG = 'Móng vật liệu hạt', G_GC = 'Gia cố chất kết dính vô cơ (chưa kiểm tra kéo uốn)';
+  G_MONG = 'Móng vật liệu hạt', G_GC = 'Gia cố chất kết dính vô cơ';
 const btnc = (ten, h) => ({ ten, h, Ev: 420, Etr: 420, Eku: 1800, Rku: 2.4, k2: 1, ku: true, g: G_BTN });
 const hat = (ten, E, h, g = G_MONG) => ({ ten, h, Ev: E, Etr: E, Eku: E, Rku: 0, k2: 1, ku: false, g });
 const PRESETS = [
@@ -569,17 +772,25 @@ const PRESETS = [
   { ten: 'Bê tông nhựa chặt (đá dăm ≥ 35%)', h: 6, Ev: 350, Etr: 350, Eku: 1600, Rku: 1.6, k2: 1, ku: true, g: G_BTN2 },
   { ten: 'Bê tông nhựa chặt (đá dăm ≥ 20%)', h: 6, Ev: 280, Etr: 280, Eku: 1200, Rku: 1.2, k2: 0.8, ku: true, g: G_BTN2 },
   { ten: 'Bê tông nhựa bán rỗng', h: 7, Ev: 320, Etr: 320, Eku: 1200, Rku: 1.2, k2: 0.8, ku: true, g: G_BTN2 },
-  { ten: 'Đá dăm đen nhựa đặc chêm chèn', h: 8, Ev: 350, Etr: 350, Eku: 800, Rku: 0, k2: 1, ku: false, g: G_NHUA },
+  // Đá dăm đen: phải kiểm tra kéo uốn (điều 9.4.1) nhưng Bảng C.1 không cho Rku — người tính nhập theo thí nghiệm
+  { ten: 'Đá dăm đen nhựa đặc chêm chèn', h: 8, Ev: 350, Etr: 350, Eku: 800, Rku: 0, k2: 0.8, ku: true, g: G_NHUA },
   { ten: 'Thấm nhập nhựa', h: 8, Ev: 300, Etr: 300, Eku: 500, Rku: 0, k2: 1, ku: false, g: G_NHUA },
   { ten: 'Hỗn hợp đá, sỏi trộn nhựa lỏng', h: 8, Ev: 235, Etr: 235, Eku: 450, Rku: 0, k2: 1, ku: false, g: G_NHUA },
   hat('Cấp phối đá dăm (Dmax25)', 300, 15), hat('Cấp phối đá dăm (Dmax37,5)', 250, 20),
   hat('Cấp phối đá dăm loại I (Dmax25)', 300, 15), hat('Cấp phối đá dăm loại I (Dmax37,5)', 300, 18),
   hat('Cấp phối đá dăm loại II (Dmax25)', 250, 18), hat('Cấp phối đá dăm loại II (Dmax37,5)', 250, 20),
-  hat('Đá dăm nước', 275, 15), hat('Cấp phối thiên nhiên', 180, 25),
-  hat('Đá dăm gia cố xi măng (Rn14 ≥ 4 MPa)', 700, 15, G_GC), hat('Đá dăm gia cố xi măng (Rn14 ≥ 2 MPa)', 450, 15, G_GC),
-  hat('Cát gia cố xi măng (Rn14 ≥ 2 MPa)', 280, 15, G_GC), hat('Đất gia cố xi măng hoặc vôi 8–10%', 350, 15, G_GC),
+  hat('Đá dăm nước', 275, 15),
+  // Cấp phối thiên nhiên: vật liệu kém dính, kiểm tra trượt trong lớp (Bảng C.2: φ = 40°, c = 0,02÷0,05 MPa, lấy cận dưới);
+  // K3 = 1,5 như ví dụ D.2 của TCCS 38
+  { ...hat('Cấp phối thiên nhiên', 180, 25), kemDinh: true, c: 0.02, phi: 40, K3: 1.5 },
+  // Gia cố vô cơ (Bảng C.2, lấy cận dưới Rku); datGC: đất, cát gia cố dùng k1 = 2,22/Ne^0,11
+  { ...hat('Đá dăm gia cố xi măng (Rn14 ≥ 4 MPa)', 700, 15, G_GC), Rku: 0.8, voCo: true },
+  { ...hat('Đá dăm gia cố xi măng (Rn14 ≥ 2 MPa)', 450, 15, G_GC), Rku: 0.5, voCo: true },
+  { ...hat('Cát gia cố xi măng (Rn14 ≥ 2 MPa)', 280, 15, G_GC), Rku: 0.4, voCo: true, datGC: true },
+  { ...hat('Đất gia cố xi măng hoặc vôi 8–10%', 350, 15, G_GC), Rku: 0.25, voCo: true, datGC: true },
+  { ...hat('Á sét gia cố xi măng hoặc vôi 8–10%', 200, 15, G_GC), Rku: 0.2, voCo: true, datGC: true },
 ];
-const fromPreset = (pi, h) => { const p = PRESETS[pi]; return { pi, ten: p.ten, h: h ?? p.h, Ev: p.Ev, Etr: p.Etr, Eku: p.Eku, Rku: p.Rku, k2: p.k2, ku: p.ku }; };
+const fromPreset = (pi, h) => { const { g, ...p } = PRESETS[pi]; return { ...p, pi, h: h ?? p.h }; };
 const presetOf = ten => PRESETS.findIndex(p => p.ten === ten);
 const DEF_LAYERS = [
   fromPreset(presetOf('Bê tông nhựa chặt (BTNC 12,5)'), 5),
@@ -854,6 +1065,7 @@ function renderSteps(r) {
         ['E<sub>1</sub>/E<sub>ch.m</sub>', `${fmt(x.E1, 1)}/${fmt(x.Echm, 2)} = ${fmt(x.r, 2)}`],
         ['σ̄<sub>ku</sub> (Hình 7)', `${fmt(x.sbar, 3)}${x.tay ? ' (nhập tay)' : ''}`],
         ['σ<sub>ku</sub> = σ̄<sub>ku</sub>·p·k<sub>b</sub>', `${fmt(x.sbar, 3)} × ${fmt(r.p, 1)} × 0,85 = ${fmt(x.sku, 3)} MPa`],
+        [`N<sub>e</sub> (${x.tL} năm) → k<sub>1</sub> = 11,11/N<sub>e</sub><sup>0,22</sup>`, `${fmt(x.NeL, 0)} trục → ${fmt(x.k1, 3)}`],
         ['R<sub>tt</sub> = k<sub>1</sub>·k<sub>2</sub>·R<sub>ku</sub>', `${fmt(x.k1, 3)} × ${fmt(x.k2, 1)} × ${fmt(x.Rku, 2)} = ${fmt(x.Rtt, 3)} MPa`],
         ['σ<sub>ku</sub> ≤ R<sub>tt</sub>/K<sub>ku</sub>', `${fmt(x.sku, 3)} ${x.ok ? '≤' : '>'} ${fmt(x.lim, 3)} MPa`]]);
     });
@@ -1141,7 +1353,7 @@ function buildPDF() {
     if (r.C.length) {
       P.h3('**C. Kiểm tra khả năng chịu kéo uốn của các lớp bê tông nhựa**');
       P.formula(['σ_{ku} ≤', { n: 'R^{ku}_{tt}', d: Kku }, '   (9);   ', `σ_{ku} = ${SB}·p·k_{b}`, '   (10)']);
-      P.para(`k_{b} = 0,85 (cụm bánh đôi); R^{ku}_{tt} = k_{1}·k_{2}·R_{ku}, với k_{1} = 11,11/N_{e}^{0,22} = 11,11/${f2(r.Ne, 0)}^{0,22} = ${f2(r.k1, 3)}; ${Kku} = ${f2(r.Kku, 2)}.`);
+      P.para(`k_{b} = 0,85 (cụm bánh đôi); R^{ku}_{tt} = k_{1}·k_{2}·R_{ku}, với k_{1} = 11,11/N_{e}^{0,22} (12), N_{e} tính với thời hạn 15 năm cho BTN chặt loại I, BTN polime (k_{2} = 1,0) và 10 năm cho các loại BTN, hỗn hợp nhựa khác (k_{2} = 0,8) — điều 9.4.3; ${Kku} = ${f2(r.Kku, 2)}.`);
       r.C.forEach((x, n) => {
         P.h3(`**C${n + 1}. Lớp ${x.ten}**`);
         if (x.m) {
@@ -1153,6 +1365,7 @@ function buildPDF() {
         const tren = x.tren.map(l => `${f2(l.Eku, 0)}×${f2(l.h, 0)}`).join(' + ');
         P.para(`b) h_{1} = ${f2(x.h1, 0)} cm${x.tren.length > 1 ? `; E_{1} = (${tren})/${f2(x.h1, 0)} = ${f2(x.E1, 1)} MPa` : `; E_{1} = ${f2(x.E1, 0)} MPa`}; h_{1}/D = ${f2(x.h1, 0)}/${r.D} = ${f2(x.hd, 3)}; E_{1}/E_{ch.m} = ${f2(x.E1, 1)}/${f2(x.Echm, 2)} = ${f2(x.r, 2)}`, { after: 0.3 });
         P.para(`Tra toán đồ Hình 7 được ${SB} = ${f2(x.sbar, 3)}${x.tay ? ' (tra tay)' : ''} → σ_{ku} = ${f2(x.sbar, 3)} × ${f2(r.p, 1)} × 0,85 = **${f2(x.sku, 3)} MPa**`, { after: 0.3 });
+        P.para(`t = ${x.tL} năm: N_{e} = ${f2(x.NeL, 0)} trục; k_{1} = 11,11/${f2(x.NeL, 0)}^{0,22} = ${f2(x.k1, 3)}`, { after: 0.3 });
         P.para(`R^{ku}_{tt} = ${f2(x.k1, 3)} × ${f2(x.k2, 1)} × ${f2(x.Rku, 2)} = ${f2(x.Rtt, 3)} MPa → R^{ku}_{tt}/${Kku} = ${f2(x.Rtt, 3)}/${f2(r.Kku, 2)} = **${f2(x.lim, 3)} MPa**`);
         ketLuan(P, x.ok, `σ_{ku} = ${f2(x.sku, 3)} ≤ ${f2(x.lim, 3)} MPa – lớp ${x.ten} đảm bảo điều kiện chịu kéo uốn.`,
           `σ_{ku} = ${f2(x.sku, 3)} > ${f2(x.lim, 3)} MPa – lớp ${x.ten} không đảm bảo điều kiện chịu kéo uốn.`);
